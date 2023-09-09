@@ -4,6 +4,7 @@ using iText.Kernel.Pdf.Canvas.Parser;
 using iText.Kernel.Pdf.Canvas.Parser.Listener;
 using OfficeOpenXml;
 using PriceComparer.Misc;
+using System.Net.NetworkInformation;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -16,15 +17,37 @@ public static partial class Program
     private static readonly HtmlDocument _doc = new();
 
     private static List<List<Product>> _listOfLists = new() { new(), new(), new(), new() };
+    private static bool IsNetworkConnected()
+    {
+        try
+        {
+            using (Ping ping = new Ping())
+            {
+                PingReply reply = ping.Send("www.google.com");
+                return (reply != null && reply.Status == IPStatus.Success);
+            }
+        }
+        catch (PingException)
+        {
+            return false;
+        }
+    }
 
     private static async Task Main()
     {
+        if (!IsNetworkConnected())
+        {
+            await Console.Out.WriteLineAsync("No Internet connection, please try later.");
+            return;
+        }
+
         while (true)
         {
             await Console.Out.WriteLineAsync("1 - 5ka");
             await Console.Out.WriteLineAsync("2 - Okay");
             await Console.Out.WriteLineAsync("3 - Perekrestok");
             await Console.Out.WriteLineAsync("4 - Evroopt");
+            await Console.Out.WriteLineAsync("5 - Green");
 
             var query = await Console.In.ReadLineAsync();
             switch (query)
@@ -58,8 +81,10 @@ public static partial class Program
         }
     }
 
-    private static Task LoadGreen()
+    private static async Task LoadGreen()
     {
+        string html = await PostAsync($"https://www.green-market.by/shares/more", "page=1&cat=&sale_id=138");
+
 
     }
 
@@ -250,7 +275,13 @@ public static partial class Program
 
         HttpResponseMessage response = await _client.PostAsync(url, content);
 
+        if (!response.IsSuccessStatusCode)
+        {
+            Console.WriteLine("Request failed with status code: " + response.StatusCode);
+            throw new HttpRequestException(response.StatusCode.ToString());
+        }
 
+        return await response.Content.ReadAsStringAsync();
     }
 
     private static void SaveToExcel()
